@@ -73,17 +73,19 @@ def workerprocs():
         except psutil.NoSuchProcess:
             pass
 
+def workersrq(worker_name):
+    for worker in Worker.all(connection=conn1):
+        if worker_name is None:
+            worker_name = worker.name
+        print(worker.name, worker.state)
+
 """
 TEST
 (remember to launch a worker with ./launchworker.py)
 """
 print("\nSTART\n")
 print('* Running before job (RQ)')
-for worker in Worker.all(connection=conn1):
-    if worker_name is None:
-        worker_name = worker.name
-    print(worker.name)
-
+workersrq(worker_name)
 print('* Running before job (PS)')
 workerprocs()
 
@@ -93,9 +95,7 @@ print('Enqueued', job)
 sleep(1)
 
 print('* Running with job ongoing (RQ)')
-for worker in Worker.all(connection=conn1):
-    print(worker.name, worker.state)
-
+workersrq(worker_name)
 print('* Running  with job ongoing (PS)')
 workerprocs()
 
@@ -105,12 +105,11 @@ A new process appears with same commandline and new pid
 
 print('SENDING SIGNAL NOW')
 
+
+
 sleep(2)
-
 print('* Running after, with job finished (RQ)')
-for worker in Worker.all(connection=conn1):
-    print(worker.name, worker.state)
-
+workersrq(worker_name)
 print('* Running after, with job finished (PS)')
 workerprocs()
 
