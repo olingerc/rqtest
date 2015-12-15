@@ -69,22 +69,22 @@ def workerprocs():
     for proc in psutil.process_iter():
         try:
             if "launchworker.py" in str(proc.cmdline()):
-                print(proc.cmdline())
-                print(proc.pid)
+                print(proc.cmdline(), proc.pid)
         except psutil.NoSuchProcess:
             pass
 
 """
 TEST
+(remember to launch a worker with ./launchworker.py)
 """
-
-print('Running before job (RQ)')
+print("\nSTART\n")
+print('* Running before job (RQ)')
 for worker in Worker.all(connection=conn1):
     if worker_name is None:
         worker_name = worker.name
     print(worker.name)
 
-print('Running before job (PS)')
+print('* Running before job (PS)')
 workerprocs()
 
 job = q.enqueue(wait_a_bit, 2)
@@ -92,11 +92,11 @@ print('Enqueued', job)
 
 sleep(1)
 
-print('Running with job ongoing (RQ)')
+print('* Running with job ongoing (RQ)')
 for worker in Worker.all(connection=conn1):
     print(worker.name, worker.state)
 
-print('Running  with job ongoing (PS)')
+print('* Running  with job ongoing (PS)')
 workerprocs()
 
 """
@@ -107,9 +107,11 @@ print('SENDING SIGNAL NOW')
 
 sleep(2)
 
-print('Running after, with job finished (RQ)')
+print('* Running after, with job finished (RQ)')
 for worker in Worker.all(connection=conn1):
     print(worker.name, worker.state)
 
-print('Running after, with job finished (PS)')
+print('* Running after, with job finished (PS)')
 workerprocs()
+
+print("\nEND\n")
