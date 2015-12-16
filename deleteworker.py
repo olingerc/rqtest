@@ -13,12 +13,12 @@ import signal
 import os
 import psutil
 
-from rq import Connection, Worker
+from rq import Worker
 
 from rqtest.functions import wait_a_bit
 from redis import Redis
 from rq import Queue
-from rq.registry import StartedJobRegistry
+
 
 """
 Test deleting workers warm and cold
@@ -34,15 +34,9 @@ FUNCS
 
 
 def kill_worker_gently(worker_name):
-    with Connection(connection=conn1):
-        for worker in Worker.all():
-            if worker.name == worker_name:
-                worker.register_death()
     try:
         pid = worker_name.split('.')[1]
-        # TODO: check rq, worker.pid not correct ?!
         os.kill(int(pid), signal.SIGTERM)
-        # TODO: handle time btw shot and death inform client
     except OSError:
         print('process does not exist')
     except Exception as e:
@@ -51,20 +45,17 @@ def kill_worker_gently(worker_name):
 
 
 def kill_worker_evil(worker_name):
-    with Connection(connection=conn1):
-        for worker in Worker.all():
-            if worker.name == worker_name:
-                worker.register_death()
     try:
         pid = worker_name.split('.')[1]
-        # TODO: check rq, worker.pid not correct ?!
-        # TODO: kill subprocesses, change mongo status of running job
-        os.kill(int(pid), signal.SIGKILL)
+        os.kill(int(pid), signal.SIGTERM)
+        sleep(0.5)
+        os.kill(int(pid), signal.SIGTERM)
     except OSError:
         print('process does not exist')
     except Exception as e:
         print("Error killing worker: %s" % e)
         raise
+
 
 def workerprocs():
     for proc in psutil.process_iter():
@@ -74,11 +65,17 @@ def workerprocs():
         except psutil.NoSuchProcess:
             pass
 
-def workersrq(worker_name):
+
+def workersrq():
+    workers = []
     for worker in Worker.all(connection=conn1):
-        if worker_name is None:
-            worker_name = worker.name
+        workers.append(worker.name)
         print(worker.name, worker.state)
+    if len(workers) == 0:
+        print("No WORKERS!!!")
+        return None
+    else:
+        return workers[0]
 
 """
 TEST
@@ -86,17 +83,17 @@ TEST
 """
 print("\nSTART\n")
 print('* Running before job (RQ)')
-workersrq(worker_name)
+worker_name = workersrq()
 print('* Running before job (PS)')
 workerprocs()
 
-job = q.enqueue(wait_a_bit, 2)
+job = q.enqueue(wait_a_bit, 10)
 print('Enqueued', job)
 
 sleep(1)
 
 print('* Running with job ongoing (RQ)')
-workersrq(worker_name)
+workersrq()
 print('* Running  with job ongoing (PS)')
 workerprocs()
 
@@ -105,12 +102,35 @@ A new process appears with same commandline and new pid
 """
 
 print('SENDING SIGNAL NOW')
+"""
+kill_worker_gently:
+Trying with first via RQ, then os.lill SIGKILL --> redis is empty at once?
+Trying other way around --> OK!!!
+"""
 
+"""
+kill_worker_evil:
+Trying with twice SIGTERM with sleep in btw --> OK
+Trying the same but with a kill gentyly signal before --> OK
+Adding lots of kill signals --> OK, no exception
+Trying with two kill gentlies in a row --> no?
+Adding a sleep between the two in kill evil is ok. Using kill evil wihtou sleep is no tok ??
+Using kill gently twice is ok again. So a bit of time between the two signals is necesary
+"""
+print('* Running in between signals (RQ)')
+workersrq()
+print('* Running  in between signals (PS)')
+workerprocs()
+kill_worker_evil(worker_name)
 
+print('* Running after, with job ongoing (RQ)')
+workersrq()
+print('* Running after, with job ongoing (PS)')
+workerprocs()
 
 sleep(2)
 print('* Running after, with job finished (RQ)')
-workersrq(worker_name)
+workersrq()
 print('* Running after, with job finished (PS)')
 workerprocs()
 
