@@ -5,7 +5,8 @@ from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 
 import sys
-sys.path.insert(0, "/home/christophe/Documents/Projects/programming_projects/rq")
+# sys.path.insert(0, "/home/christophe/Documents/Projects/programming_projects/rq")
+sys.path.insert(0, "/home/christophe/workspace/velona/rq")
 
 from rq import Connection, Worker, Queue
 from redis import Redis
